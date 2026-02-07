@@ -1,0 +1,368 @@
+Phase 0 — Foundation (Don’t skip)
+Goals
+
+Lock the design system so every screen matches your attached dashboard (fonts, spacing, colors, table style, dark mode).
+
+Freeze the core entities + API contracts so Bolt doesn’t generate random structures.
+
+Deliverables
+
+Design tokens
+
+Font family (exact), font sizes, border radius, spacing scale
+
+Light + Dark theme variables
+
+Button styles, badges (Pending/Resolved/Assigned), table row hover, sidebar panel style
+
+Frontend scaffolding
+
+React + TypeScript
+
+Tailwind (or CSS variables) + theme switch
+
+Reusable components: DataTable, StatusBadge, RightDrawer, TopNav, FiltersBar
+
+Backend scaffolding
+
+Spring Boot (Web, Validation, JPA)
+
+DB: PostgreSQL (recommended) or MySQL
+
+Flyway/Liquibase migrations
+
+JWT auth (or session) + roles
+
+Phase 1 — Exact UI Replication (Static First)
+Goals
+
+Build pixel-identical dashboard page first (no backend yet).
+
+Match:
+
+Top nav (Dashboard/Teams/Reports/Modules/Tools)
+
+“All tasks”
+
+Filters row
+
+Tickets table (checkboxes, Subject links, Assigned to, Group, Status badges, Actions icons)
+
+Right “Create Ticket (Quick)” panel + “Recent items”
+
+Deliverables (Frontend)
+
+Pages:
+
+/tickets (this dashboard)
+
+Components:
+
+TicketTable
+
+TicketQuickCreatePanel
+
+TicketFilters
+
+Pagination
+
+SearchRequestId
+
+✅ Output of this phase: UI looks exactly like your screenshot, with mocked JSON data.
+
+Bolt.new prompt for Phase 1
+
+“Create a pixel-perfect UI replica of the attached ticket dashboard screen. Use React + TS + Tailwind. Implement reusable components (TopNav, FiltersBar, DataTable, RightPanel). Use mocked data. Include light/dark mode matching the screenshots. Do not implement backend yet.”
+
+Phase 2 — Backend Core Ticketing (CRUD + Lists)
+Goals
+
+Make the dashboard real: list tickets, filters, create ticket quick, update status.
+
+Entities (Minimum)
+
+User
+
+Team (optional)
+
+Category
+
+Ticket
+
+TicketActivity (comments, status changes)
+
+Attachment (optional later)
+
+Ticket fields (baseline)
+
+id, requestId, subject, description
+
+categoryId
+
+status (Pending/Assigned/Resolved/Overdue)
+
+priority
+
+assignedTo (userId)
+
+group/team
+
+createdAt, updatedAt, dueDate
+
+APIs (baseline)
+
+GET /api/tickets?status=&q=&page=&size=&category=&assignedTo=
+
+POST /api/tickets (create quick)
+
+GET /api/tickets/{id}
+
+PATCH /api/tickets/{id} (status/assignee updates)
+
+GET /api/users (technicians dropdown)
+
+GET /api/categories
+
+✅ Output: Dashboard works end-to-end with real DB.
+
+Phase 3 — Category Management + Dynamic Form Builder (Your Key Requirement)
+
+This is the most important part: Admin defines category + form schema, stored in DB.
+
+What to build
+1) Category CRUD
+
+Category: id, name, code, active, formSchema(JSON), uiSchema(JSON), createdBy
+
+2) Form Schema model (JSON)
+
+Store a JSON definition like:
+
+{
+  "fields": [
+    { "key": "site", "label": "Site", "type": "dropdown", "required": true, "optionsApi": "/api/sites" },
+    { "key": "requesterName", "label": "Requester name", "type": "text", "required": true },
+    { "key": "description", "label": "Description", "type": "textarea", "required": true },
+    { "key": "priority", "label": "Priority", "type": "dropdown", "required": true, "options": ["Low","Medium","High"] }
+  ]
+}
+
+3) Admin UI: “Category Builder”
+
+Create category (ex: “Whitelist”)
+
+Add fields: text, textarea, dropdown, date, number, checkbox, file
+
+Field settings: required, placeholder, min/max, validations, options
+
+Reorder fields (drag-drop)
+
+Save => schema saved in DB
+
+Backend tables for dynamic forms
+
+categories (includes form_schema JSONB)
+
+tickets (basic fields)
+
+ticket_form_values (ticket_id, key, value as JSON)
+
+✅ Why separate ticket_form_values?
+
+You can change schema later without altering tickets table.
+
+You can query/serialize dynamic fields cleanly.
+
+APIs for Form Builder
+
+POST /api/categories
+
+PUT /api/categories/{id}
+
+GET /api/categories/{id}
+
+GET /api/categories
+
+POST /api/categories/{id}/validate-schema (optional)
+
+Phase 4 — Ticket Create Flow (Category → Load Form → Submit)
+How it works
+
+User selects Category
+
+Frontend calls GET /api/categories/{id} → receives schema
+
+Frontend renders dynamic form using a DynamicFormRenderer
+
+Submit:
+
+Ticket base fields
+
+Dynamic values JSON
+
+API
+
+POST /api/tickets
+Request example:
+
+{
+  "subject": "Unable to browse",
+  "categoryId": "WHITELIST",
+  "assignedTo": "user-123",
+  "base": {
+    "priority": "High",
+    "dueDate": "2026-02-07"
+  },
+  "dynamic": {
+    "site": "Chennai",
+    "requesterName": "Sabbu",
+    "whitelistIp": "1.2.3.4",
+    "justification": "Needed for vendor"
+  }
+}
+
+
+Backend:
+
+Validate dynamic against category schema
+
+Save ticket + form values
+
+✅ Output: Your requirement is satisfied exactly.
+
+Phase 5 — Ticket Details Page + Activity + Actions
+UI
+
+Ticket details view (right drawer or full page)
+
+Tabs: Details | Conversation | History | Attachments
+
+Actions: Assign, Resolve, Flag, Change due date
+
+Backend
+
+TicketActivity: status changes, comments, assignment logs
+
+POST /api/tickets/{id}/comments
+
+GET /api/tickets/{id}/activities
+
+Phase 6 — Reports + SLA + Overdue + Analytics
+
+SLA rules per category/priority
+
+Overdue auto-calculation
+
+Dashboards:
+
+Global counts
+
+Trends
+
+By category
+
+By technician
+
+APIs:
+
+/api/analytics/global
+
+/api/analytics/trends?days=7
+
+Phase 7 — Hardening (Production-grade)
+
+Auth + RBAC (Admin, Technician, Requester)
+
+Audit logs
+
+Rate limits
+
+Server-side pagination
+
+Search indexing (optional later)
+
+File uploads (S3/minio)
+
+Frontend Architecture (recommended)
+Pages
+
+TicketsDashboardPage
+
+CreateTicketPage (full form)
+
+CategoryBuilderPage (admin)
+
+TicketDetailsPage
+
+Core UI Components
+
+DataTable<T>
+
+RightSidePanel
+
+DynamicFormBuilder
+
+DynamicFormRenderer
+
+StatusBadge
+
+IconActions
+
+State
+
+React Query for API cache
+
+Zustand/Redux only if needed
+
+Backend Architecture (Spring Boot)
+Layers
+
+Controller → Service → Repository
+
+DTOs for request/response (strict)
+
+JSON schema validation in service layer
+
+Tech suggestions
+
+Postgres + JSONB for form schema
+
+Flyway migrations
+
+Bean Validation + custom validator for dynamic forms
+
+Bolt.new Implementation Strategy (Best way to avoid mess)
+
+Use Bolt in small controlled prompts:
+
+Prompt 1 (UI only)
+
+“Replicate dashboard UI exactly + reusable components, mocked data.”
+
+Prompt 2 (Backend only)
+
+“Generate Spring Boot REST API for tickets/categories with Postgres, JPA, Flyway, DTOs.”
+
+Prompt 3 (Dynamic form)
+
+“Implement Category Builder UI to create JSON schema and DynamicFormRenderer to render based on schema.”
+
+Prompt 4 (Integration)
+
+“Connect dashboard to backend APIs with pagination, filters, create ticket quick panel.”
+
+This avoids Bolt creating random inconsistent things.
+
+What you should build FIRST (order that works)
+
+Phase 1 UI replica
+
+Phase 3 Category Builder (schema stored)
+
+Phase 4 Ticket create using schema
+
+Phase 2 Tickets list/dashboard integration
+
+Then details/actions/reports
+
+This order ensures your “category → form” system is solid before everything else depends on it.
